@@ -27,7 +27,7 @@
 ALPHA_H_VALUES=(0.1 0.03 0.3 1.0)   # 0.1 (the reference value) first so it starts immediately
 ALPHA_L=0.01
 BATCH=32
-EPOCHS=50000
+EPOCHS=10000   # screen: 2 eval points, aligned with the TRM baseline's first two. 50000 = full run.
 # -----------------------------------------------------------------------------------------
 
 set -u
