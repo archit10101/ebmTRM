@@ -352,6 +352,32 @@ def apply_resume_checkpoint(state: dict, train_state: TrainState, ema_helper: Op
     print(f"Resuming from step {train_state.step} (iter {state['iter_id']}, {state['batches_done']} batches, phase {state['phase']})", flush=True)
 
 
+_WANDB_LOG_FAILURES = 0
+
+
+def wandb_log(*args, **kwargs):
+    """wandb.log that cannot kill training.
+
+    Slurm preemption signals every process in the job, including wandb's background
+    service, so a log call right after the signal raises ConnectionResetError.
+    Losing a logged point is acceptable; losing the run is not.
+    """
+    global _WANDB_LOG_FAILURES
+    try:
+        wandb.log(*args, **kwargs)
+    except Exception as e:
+        _WANDB_LOG_FAILURES += 1
+        if _WANDB_LOG_FAILURES <= 3 or _WANDB_LOG_FAILURES % 1000 == 0:
+            print(f"WARNING: wandb.log failed ({type(e).__name__}: {e}); {_WANDB_LOG_FAILURES} failures so far, continuing.", flush=True)
+
+
+def wandb_finish():
+    try:
+        wandb.finish()
+    except Exception as e:
+        print(f"WARNING: wandb.finish failed ({type(e).__name__}: {e}); continuing.", flush=True)
+
+
 def stop_requested(world_size: int) -> bool:
     # All ranks must agree, otherwise a rank that keeps training deadlocks on the next all-reduce.
     if world_size <= 1:
@@ -739,7 +765,7 @@ def launch(hydra_config: DictConfig):
     def checkpoint_and_exit(iter_id: int, batches_done: int, phase: str):
         save_resume_checkpoint(config, train_state, ema_helper, iter_id, batches_done, phase, wandb_run_id, rank=RANK)
         if RANK == 0:
-            wandb.finish()
+            wandb_finish()
         if dist.is_initialized():
             dist.destroy_process_group()
         print(f"Exiting with code {STOP_EXIT_CODE} for requeue.", flush=True)
@@ -769,20 +795,22 @@ def launch(hydra_config: DictConfig):
 
                     metrics = train_batch(config, train_state, batch, global_batch_size, rank=RANK, world_size=WORLD_SIZE)
                     batches_done += 1
-
-                    if RANK == 0 and metrics is not None:
-                        wandb.log(metrics, step=train_state.step)
-                        progress_bar.update(train_state.step - progress_bar.n)  # type: ignore
                     if config.ema:
                         ema_helper.update(train_state.model)
 
+                    # Checkpoint before touching wandb: after a preemption signal its service is already dead.
                     if stop_requested(WORLD_SIZE):
                         checkpoint_and_exit(_iter_id, batches_done, "train")
+
+                    if RANK == 0 and metrics is not None:
+                        wandb_log(metrics, step=train_state.step)
+                        progress_bar.update(train_state.step - progress_bar.n)  # type: ignore
                     if RANK == 0 and (time.time() - last_checkpoint_time) > config.checkpoint_interval_minutes * 60:
                         save_resume_checkpoint(config, train_state, ema_helper, _iter_id, batches_done, "train", wandb_run_id, rank=RANK)
                         last_checkpoint_time = time.time()
-            except RuntimeError:
-                # If a signal killed the data loader worker mid-fetch, the completed steps are still consistent.
+            except Exception:
+                # Anything that breaks after a stop signal (dead data loader worker, dead wandb service, ...)
+                # still leaves the completed steps consistent: checkpoint them rather than lose them.
                 if _STOP_REQUESTED:
                     checkpoint_and_exit(_iter_id, batches_done, "train")
                 raise
@@ -812,7 +840,7 @@ def launch(hydra_config: DictConfig):
                 cpu_group=CPU_PROCESS_GROUP)
 
             if RANK == 0 and metrics is not None:
-                wandb.log(metrics, step=train_state.step)
+                wandb_log(metrics, step=train_state.step)
                 
             ############ Checkpointing
             if RANK == 0:
