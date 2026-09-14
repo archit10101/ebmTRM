@@ -27,6 +27,8 @@
 ALPHA_H_VALUES=(0.1 0.03 0.3 1.0)   # 0.1 (the reference value) first so it starts immediately
 ALPHA_L=0.01
 BATCH=32
+LR=2.5e-5           # 1e-4 was set for batch 128 and diverged at batch 32; scaled linearly with batch.
+PUZZLE_EMB_LR=2.5e-5   # sign-SGD moves a fixed amount per step; scaled the same way to keep movement per epoch.
 EPOCHS=10000        # screen. Must be a multiple of EVAL_INTERVAL.
 EVAL_INTERVAL=2000  # 5 test-set points over the screen; epoch 10000 lines up with the TRM baseline's.
 # -----------------------------------------------------------------------------------------
@@ -38,7 +40,7 @@ mkdir -p logs
 ALPHA_H=${ALPHA_H_VALUES[$SLURM_ARRAY_TASK_ID]}
 tag() { echo "$1" | sed 's/\./p/'; }   # 0.03 -> 0p03, matching the run-name convention
 PROJECT=ebrm-maze
-RUN_NAME="pretrain_ebrm_maze_zy_q_gd_al$(tag $ALPHA_L)_ah$(tag $ALPHA_H)_b${BATCH}"
+RUN_NAME="pretrain_ebrm_maze_zy_q_gd_al$(tag $ALPHA_L)_ah$(tag $ALPHA_H)_b${BATCH}_lr$(tag $LR)"   # lr in the name: earlier lr1e-4 runs are kept as a record
 
 module load python/3.10.13-fasrc01 gcc/12.2.0-fasrc01
 source "$(conda info --base)/etc/profile.d/conda.sh"
@@ -47,7 +49,7 @@ export CUDA_HOME="$HOME/.local/share/cuda-12.6.3"
 export PATH="$CUDA_HOME/bin:$PATH"
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
-echo "[sbatch] $(date) job=$SLURM_JOB_ID task=$SLURM_ARRAY_TASK_ID alpha_H=$ALPHA_H alpha_L=$ALPHA_L batch=$BATCH epochs=$EPOCHS run=$RUN_NAME restarts=${SLURM_RESTART_COUNT:-0} node=$(hostname)"
+echo "[sbatch] $(date) job=$SLURM_JOB_ID task=$SLURM_ARRAY_TASK_ID alpha_H=$ALPHA_H alpha_L=$ALPHA_L batch=$BATCH lr=$LR epochs=$EPOCHS run=$RUN_NAME restarts=${SLURM_RESTART_COUNT:-0} node=$(hostname)"
 
 trap 'echo "[sbatch] signal received, forwarding to python"; kill -USR1 "$PID" 2>/dev/null' USR1 TERM
 
@@ -57,7 +59,7 @@ DISABLE_COMPILE=1 python pretrain.py \
   evaluators="[]" \
   global_batch_size=$BATCH \
   epochs=$EPOCHS eval_interval=$EVAL_INTERVAL \
-  lr=1e-4 puzzle_emb_lr=1e-4 \
+  lr=$LR puzzle_emb_lr=$PUZZLE_EMB_LR \
   weight_decay=1.0 puzzle_emb_weight_decay=1.0 \
   arch.mlp_t=False arch.pos_encodings=rope \
   arch.L_layers=2 \
