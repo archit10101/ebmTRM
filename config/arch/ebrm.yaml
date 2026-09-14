@@ -1,0 +1,11 @@
+defaults:
+  - trm
+  - _self_
+
+name: recursive_reasoning.ebrm@EBRM
+
+# Inherit TRM's architecture, ACT loss, halting, and 3 x (6 z + 1 y) schedule.
+# H_cycles=1 skips warm-up cycles. Both z and y always use Gaussian resets.
+H_steps: 1
+alpha_L: 0.001
+alpha_H: 0.01
