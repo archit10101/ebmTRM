@@ -10,7 +10,7 @@
 # Batch 32: the retained second-order GD cycle needs ~200GB at batch 128 (see scripts/ebrm_memprobe.py).
 # EPOCHS: 50000 is the full run (~3-5 days per value at batch 32); 10000 is a 1-day screen with
 # 2 eval points that line up with the TRM baseline's first two. Must be a multiple of 5000.
-#SBATCH --job-name=ebrm_ah
+#SBATCH --job-name=ebrm_full
 #SBATCH --partition=gpu_requeue
 #SBATCH --constraint="h100|h200"
 #SBATCH --gres=gpu:1
@@ -20,15 +20,15 @@
 #SBATCH --requeue
 #SBATCH --signal=B:USR1@300
 #SBATCH --open-mode=append
-#SBATCH --array=0-3%1
+#SBATCH --array=0-1%2
 #SBATCH --output=logs/%x_%A_%a.out
 
-# ---- the sweep: edit this list; array range above must match its length (0-3 = 4 values) ----
-ALPHA_H_VALUES=(0.1 0.03 0.3 1.0)   # 0.1 (the reference value) first so it starts immediately
+# ---- EDIT: the two winners of the screen; array range above must match its length (0-1 = 2 values) ----
+ALPHA_H_VALUES=(0.1 0.3)
 ALPHA_L=0.01
 BATCH=32
-EPOCHS=10000        # screen. Must be a multiple of EVAL_INTERVAL.
-EVAL_INTERVAL=2000  # 5 test-set points over the screen; epoch 10000 lines up with the TRM baseline's.
+EPOCHS=50000        # full run
+EVAL_INTERVAL=2000  # must equal the screen's, so the continuation lines up with its checkpoint
 # -----------------------------------------------------------------------------------------
 
 set -u
