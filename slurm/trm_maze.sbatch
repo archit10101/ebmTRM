@@ -1,5 +1,5 @@
 #!/bin/bash
-# TRM baseline on Maze-Hard (Adrian's command). Submit from the repo root:  sbatch slurm/trm_maze.sbatch
+# TRM baseline on Maze-Hard (README command). Submit from the repo root:  sbatch slurm/trm_maze.sbatch
 # Preemptible: the job checkpoints on SIGTERM/SIGUSR1, exits with code 3, and is requeued;
 # on restart pretrain.py finds checkpoints/<project>/<run>/latest.pt and resumes.
 #SBATCH --job-name=trm_maze

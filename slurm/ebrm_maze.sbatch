@@ -1,5 +1,5 @@
 #!/bin/bash
-# EBRM on Maze-Hard (Adrian's command). Submit from the repo root:  sbatch slurm/ebrm_maze.sbatch
+# EBRM on Maze-Hard. Submit from the repo root:  sbatch slurm/ebrm_maze.sbatch
 # Preemptible: the job checkpoints on SIGTERM/SIGUSR1, exits with code 3, and is requeued;
 # on restart pretrain.py finds checkpoints/<project>/<run>/latest.pt and resumes.
 #SBATCH --job-name=ebrm_maze

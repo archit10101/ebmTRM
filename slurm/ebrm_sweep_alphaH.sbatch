@@ -8,7 +8,7 @@
 #   Kill a hopeless value early:  scancel <ARRAY_JOBID>_<TASK_INDEX>
 #
 # Batch 32: the retained second-order GD cycle needs ~200GB at batch 128 (see scripts/ebrm_memprobe.py).
-# EPOCHS: 50000 is Adrian's full run (~3-5 days per value at batch 32); 10000 is a 1-day screen with
+# EPOCHS: 50000 is the full run (~3-5 days per value at batch 32); 10000 is a 1-day screen with
 # 2 eval points that line up with the TRM baseline's first two. Must be a multiple of 5000.
 #SBATCH --job-name=ebrm_ah
 #SBATCH --partition=gpu_requeue
@@ -24,7 +24,7 @@
 #SBATCH --output=logs/%x_%A_%a.out
 
 # ---- the sweep: edit this list; array range above must match its length (0-3 = 4 values) ----
-ALPHA_H_VALUES=(0.1 0.03 0.3 1.0)   # 0.1 (Adrian's value) first so it starts immediately
+ALPHA_H_VALUES=(0.1 0.03 0.3 1.0)   # 0.1 (the reference value) first so it starts immediately
 ALPHA_L=0.01
 BATCH=32
 EPOCHS=50000
@@ -35,7 +35,7 @@ cd "$SLURM_SUBMIT_DIR"
 mkdir -p logs
 
 ALPHA_H=${ALPHA_H_VALUES[$SLURM_ARRAY_TASK_ID]}
-tag() { echo "$1" | sed 's/\./p/'; }   # 0.03 -> 0p03, matching Adrian's run-name convention
+tag() { echo "$1" | sed 's/\./p/'; }   # 0.03 -> 0p03, matching the run-name convention
 PROJECT=ebrm-maze
 RUN_NAME="pretrain_ebrm_maze_zy_q_gd_al$(tag $ALPHA_L)_ah$(tag $ALPHA_H)_b${BATCH}"
 
