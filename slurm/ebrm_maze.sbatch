@@ -25,6 +25,10 @@ export CUDA_HOME="$HOME/.local/share/cuda-12.6.3"
 export PATH="$CUDA_HOME/bin:$PATH"
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True   # reduces allocator fragmentation
 
+source slurm/lib.sh
+gpu_preflight            # bad/busy GPU on this node -> exclude node, requeue
+START_TS=$(date +%s)
+
 PROJECT=ebrm-maze
 RUN_NAME=pretrain_ebrm_maze_zy_q_gd_al0p01_ah0p1_b32
 
@@ -59,6 +63,7 @@ if [ "$EXIT" -gt 128 ]; then
   wait "$PID"; EXIT=$?
 fi
 echo "[sbatch] $(date) python exited with code $EXIT"
+infra_check_after_run "$EXIT" "$START_TS"   # early CUDA device error -> exclude node, requeue
 
 if [ "$EXIT" -eq 3 ]; then
   echo "[sbatch] checkpointed on signal; requeueing"

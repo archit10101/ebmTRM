@@ -49,6 +49,10 @@ export CUDA_HOME="$HOME/.local/share/cuda-12.6.3"
 export PATH="$CUDA_HOME/bin:$PATH"
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
+source slurm/lib.sh
+gpu_preflight            # bad/busy GPU on this node -> exclude node, requeue
+START_TS=$(date +%s)
+
 echo "[sbatch] $(date) job=$SLURM_JOB_ID task=$SLURM_ARRAY_TASK_ID alpha_H=$ALPHA_H alpha_L=$ALPHA_L batch=$BATCH epochs=$EPOCHS run=$RUN_NAME restarts=${SLURM_RESTART_COUNT:-0} node=$(hostname)"
 
 trap 'echo "[sbatch] signal received, forwarding to python"; kill -USR1 "$PID" 2>/dev/null' USR1 TERM
@@ -75,6 +79,7 @@ if [ "$EXIT" -gt 128 ]; then
   wait "$PID"; EXIT=$?
 fi
 echo "[sbatch] $(date) python exited with code $EXIT"
+infra_check_after_run "$EXIT" "$START_TS"   # early CUDA device error -> exclude node, requeue
 
 if [ "$EXIT" -eq 3 ]; then
   echo "[sbatch] checkpointed on signal; requeueing"
