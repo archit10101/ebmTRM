@@ -4,7 +4,7 @@
 # on restart pretrain.py finds checkpoints/<project>/<run>/latest.pt and resumes.
 #SBATCH --job-name=ebrm_maze
 #SBATCH --partition=gpu_requeue
-#SBATCH --constraint="h100|h200"   # 80GB cards: batch 400 needs ~55GB (OOMs on 48GB A40)
+#SBATCH --constraint="h100|h200"   # 80GB cards. Batch 400 OOMs even on a 140GB H200; 128 needs ~45-65GB.
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
@@ -26,7 +26,7 @@ export PATH="$CUDA_HOME/bin:$PATH"
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True   # reduces allocator fragmentation
 
 PROJECT=ebrm-maze
-RUN_NAME=pretrain_ebrm_maze_zy_q_gd_al0p01_ah0p1_b400
+RUN_NAME=pretrain_ebrm_maze_zy_q_gd_al0p01_ah0p1_b128
 
 echo "[sbatch] $(date) job=$SLURM_JOB_ID restarts=${SLURM_RESTART_COUNT:-0} node=$(hostname)"
 
@@ -34,12 +34,13 @@ echo "[sbatch] $(date) job=$SLURM_JOB_ID restarts=${SLURM_RESTART_COUNT:-0} node
 trap 'echo "[sbatch] signal received, forwarding to python"; kill -USR1 "$PID" 2>/dev/null' USR1 TERM
 
 # DISABLE_COMPILE is required for arch=ebrm (autograd.grad inside forward).
-# Lower global_batch_size if you run out of GPU memory.
+# Batch 128 (same as the TRM baseline). 400 OOMs on every GPU here (>140GB): the math attention
+# backend needed for second-order gradients keeps B*8*916*916 fp32 matrices alive per retained step.
 DISABLE_COMPILE=1 python pretrain.py \
   arch=ebrm \
   data_paths="[data/maze-30x30-hard-1k]" \
   evaluators="[]" \
-  global_batch_size=400 \
+  global_batch_size=128 \
   epochs=50000 eval_interval=5000 \
   lr=1e-4 puzzle_emb_lr=1e-4 \
   weight_decay=1.0 puzzle_emb_weight_decay=1.0 \

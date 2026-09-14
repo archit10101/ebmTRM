@@ -33,7 +33,7 @@ mkdir -p logs
 ALPHA_H=${ALPHA_H_VALUES[$SLURM_ARRAY_TASK_ID]}
 tag() { echo "$1" | sed 's/\./p/'; }   # 0.03 -> 0p03, matching Adrian's run-name convention
 PROJECT=ebrm-maze
-RUN_NAME="pretrain_ebrm_maze_zy_q_gd_al$(tag $ALPHA_L)_ah$(tag $ALPHA_H)_b400"
+RUN_NAME="pretrain_ebrm_maze_zy_q_gd_al$(tag $ALPHA_L)_ah$(tag $ALPHA_H)_b128"
 
 module load python/3.10.13-fasrc01 gcc/12.2.0-fasrc01
 source "$(conda info --base)/etc/profile.d/conda.sh"
@@ -50,7 +50,7 @@ DISABLE_COMPILE=1 python pretrain.py \
   arch=ebrm \
   data_paths="[data/maze-30x30-hard-1k]" \
   evaluators="[]" \
-  global_batch_size=400 \
+  global_batch_size=128 \
   epochs=50000 eval_interval=5000 \
   lr=1e-4 puzzle_emb_lr=1e-4 \
   weight_decay=1.0 puzzle_emb_weight_decay=1.0 \
