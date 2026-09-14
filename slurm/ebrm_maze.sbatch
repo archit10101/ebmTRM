@@ -4,6 +4,7 @@
 # on restart pretrain.py finds checkpoints/<project>/<run>/latest.pt and resumes.
 #SBATCH --job-name=ebrm_maze
 #SBATCH --partition=gpu_requeue
+#SBATCH --constraint="h100|h200"   # 80GB cards: batch 400 needs ~55GB (OOMs on 48GB A40)
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
@@ -22,6 +23,7 @@ source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate ebrm-trm
 export CUDA_HOME="$HOME/.local/share/cuda-12.6.3"
 export PATH="$CUDA_HOME/bin:$PATH"
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True   # reduces allocator fragmentation
 
 PROJECT=ebrm-maze
 RUN_NAME=pretrain_ebrm_maze_zy_q_gd_al0p01_ah0p1_b400

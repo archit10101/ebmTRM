@@ -4,6 +4,7 @@
 # on restart pretrain.py finds checkpoints/<project>/<run>/latest.pt and resumes.
 #SBATCH --job-name=trm_maze
 #SBATCH --partition=gpu_requeue
+#SBATCH --constraint="h100|h200|a100|a40"   # full GPUs only (no MIG slices, no Blackwell RTX 6000)
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
@@ -22,6 +23,7 @@ source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate ebrm-trm
 export CUDA_HOME="$HOME/.local/share/cuda-12.6.3"
 export PATH="$CUDA_HOME/bin:$PATH"
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 PROJECT=ebrm-maze
 RUN_NAME=pretrain_att_maze30x30_1gpu

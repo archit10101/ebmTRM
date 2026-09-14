@@ -5,6 +5,7 @@
 # Read the summary at the bottom of logs/smoke_<jobid>.out when it finishes (~15 min).
 #SBATCH --job-name=smoke
 #SBATCH --partition=gpu_requeue
+#SBATCH --constraint="h100|h200"
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
@@ -20,6 +21,7 @@ source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate ebrm-trm
 export CUDA_HOME="$HOME/.local/share/cuda-12.6.3"
 export PATH="$CUDA_HOME/bin:$PATH"
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 echo "[smoke] $(date) node=$(hostname) gpu=$(nvidia-smi --query-gpu=name --format=csv,noheader)"
 python -c "import torch, numpy; from adam_atan2 import AdamATan2; print('[smoke] env ok: torch', torch.__version__, 'cuda', torch.cuda.is_available())" || exit 1
@@ -44,13 +46,13 @@ DISABLE_COMPILE=1 python pretrain.py arch=ebrm data_paths="[data/maze-30x30-hard
   arch.H_cycles=3 arch.L_cycles=6 arch.H_steps=1 arch.alpha_L=0.01 arch.alpha_H=0.1 arch.halt_max_steps=16 \
   ema=True +project_name=ebrm-maze +run_name=smoke_ebrm > logs/smoke_ebrm.log 2>&1 &
 PID=$!
-PEAK=0
-while kill -0 $PID 2>/dev/null; do
-  USED=$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits | head -1)
-  [ "$USED" -gt "$PEAK" ] && PEAK=$USED
-  sleep 5
-done
+# Poll GPU memory in the background (kill -0 would keep seeing the exited python as a zombie until wait reaps it).
+PEAK_FILE=logs/smoke_peak_mem.txt; echo 0 > $PEAK_FILE
+( while true; do nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits | head -1 >> $PEAK_FILE; sleep 5; done ) &
+POLL=$!
 wait $PID; EBRM_EXIT=$?
+kill $POLL 2>/dev/null; wait $POLL 2>/dev/null
+PEAK=$(sort -n $PEAK_FILE | tail -1)
 grep -E "Traceback|Error|OutOfMemory" logs/smoke_ebrm.log | head -3
 
 echo; echo "================= SUMMARY ================="
