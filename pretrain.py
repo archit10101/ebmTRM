@@ -39,8 +39,16 @@ _STOP_REQUESTED = False
 
 def _request_stop(signum, frame):
     global _STOP_REQUESTED
+    first = not _STOP_REQUESTED
     _STOP_REQUESTED = True
-    print(f"Received signal {signum}: will checkpoint after the current step and exit.", flush=True)
+    if first:
+        # Only async-signal-safe I/O here. Slurm preemption delivers SIGTERM directly and the sbatch
+        # trap forwards SIGUSR1 right after; a print() interrupted by the second signal raises
+        # "reentrant call inside BufferedWriter" from within the handler and crashes the run.
+        try:
+            os.write(sys.stdout.fileno(), f"Received signal {signum}: will checkpoint after the current step and exit.\n".encode())
+        except OSError:
+            pass
 
 
 def _ignore_stop_signals_in_worker(_worker_id):
@@ -781,6 +789,11 @@ def launch(hydra_config: DictConfig):
         skip_train = (_iter_id == start_iter_id) and (start_phase == "eval")
         batches_to_skip = start_batches_done if (_iter_id == start_iter_id and start_phase == "train") else 0
         batches_done = 0
+
+        # A signal that arrived during startup: record the current position and requeue now
+        # rather than spending the (possibly 70s compile) first step on a job that is being killed.
+        if stop_requested(WORLD_SIZE):
+            checkpoint_and_exit(_iter_id, batches_to_skip, "eval" if skip_train else "train")
 
         if not skip_train:
             if RANK == 0:
