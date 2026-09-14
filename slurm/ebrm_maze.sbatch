@@ -3,7 +3,7 @@
 # Preemptible: the job checkpoints on SIGTERM/SIGUSR1, exits with code 3, and is requeued;
 # on restart pretrain.py finds checkpoints/<project>/<run>/latest.pt and resumes.
 #SBATCH --job-name=ebrm_maze
-#SBATCH --partition=kempner_requeue
+#SBATCH --partition=gpu_requeue
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G

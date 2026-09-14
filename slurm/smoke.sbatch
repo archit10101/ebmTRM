@@ -4,7 +4,7 @@
 # 2) short EBRM run at batch 400 with GPU memory polling              (does it fit?)
 # Read the summary at the bottom of logs/smoke_<jobid>.out when it finishes (~15 min).
 #SBATCH --job-name=smoke
-#SBATCH --partition=kempner_requeue
+#SBATCH --partition=gpu_requeue
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
