@@ -331,6 +331,13 @@ def apply_resume_checkpoint(state: dict, train_state: TrainState, ema_helper: Op
     assert len(state["optimizers"]) == len(train_state.optimizers), "Optimizer count changed since checkpoint"
     for optim, optim_state in zip(train_state.optimizers, state["optimizers"]):
         optim.load_state_dict(optim_state)
+        # Optimizer.load_state_dict leaves the "step" entry on whatever device it was saved from
+        # (CPU here) unless the optimizer is flagged fused/capturable. AdamATan2's fused CUDA
+        # kernel needs every state tensor, step included, on the parameter's device.
+        for param, param_state in optim.state.items():
+            for k, v in param_state.items():
+                if torch.is_tensor(v) and v.device != param.device:
+                    param_state[k] = v.to(param.device)
     train_state.step = state["step"]
 
     if rank == 0:
