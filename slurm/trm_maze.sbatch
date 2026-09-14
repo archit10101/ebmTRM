@@ -17,7 +17,7 @@ set -u
 cd "$SLURM_SUBMIT_DIR"
 mkdir -p logs
 
-module load python/3.10.13-fasrc01
+module load python/3.10.13-fasrc01 gcc/12.2.0-fasrc01   # gcc>=9 needed by torch.compile / CUDA extensions
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate ebrm-trm
 export CUDA_HOME="$HOME/.local/share/cuda-12.6.3"
