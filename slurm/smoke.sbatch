@@ -40,9 +40,9 @@ echo; echo "===== [2/3] TRM: resume to completion ====="
 python pretrain.py $SMOKE_TRM > logs/smoke_trm_resume.log 2>&1; TRM_RESUME_EXIT=$?
 grep -E "Resuming|^TRAIN|EVALUATE|Traceback|Error" logs/smoke_trm_resume.log | head -6
 
-echo; echo "===== [3/3] EBRM at batch 128 with memory polling ====="
+echo; echo "===== [3/3] EBRM at batch 32 with memory polling ====="
 DISABLE_COMPILE=1 python pretrain.py arch=ebrm data_paths="[data/maze-30x30-hard-1k]" evaluators="[]" \
-  global_batch_size=128 epochs=20 eval_interval=10 \
+  global_batch_size=32 epochs=20 eval_interval=10 \
   arch.H_cycles=3 arch.L_cycles=6 arch.H_steps=1 arch.alpha_L=0.01 arch.alpha_H=0.1 arch.halt_max_steps=16 \
   ema=True +project_name=ebrm-maze +run_name=smoke_ebrm > logs/smoke_ebrm.log 2>&1 &
 PID=$!
