@@ -40,3 +40,7 @@ min_eval_interval: 0 # when to start the eval
 ema: False # use Exponential-Moving-Average
 ema_rate: 0.999 # EMA-rate
 freeze_weights: False # If True, freeze weights and only learn the embeddings
+
+# Resumable training (for preemptible / requeue partitions)
+resume: True # resume from <checkpoint_path>/latest.pt if it exists
+checkpoint_interval_minutes: 20 # how often to write latest.pt during training (also written on SIGTERM/SIGUSR1)

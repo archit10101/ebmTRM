@@ -48,6 +48,7 @@ class PuzzleDatasetConfig(pydantic.BaseModel):
     epochs_per_iter: int  # Batch X epochs in an iteration to reduce overhead.
     rank: int
     num_replicas: int
+    resume_iteration: int = 0  # Training iteration to start from (each iteration reseeds the shuffle), for resuming.
 
 class PuzzleDataset(IterableDataset):
     def __init__(self, config: PuzzleDatasetConfig, split: str = "train"):
@@ -110,7 +111,9 @@ class PuzzleDataset(IterableDataset):
 
         # State
         self._data = None
-        self._iters = 0
+        # _iter_train increments _iters once per (set, dataset_path) pair each iteration and seeds the
+        # shuffle from it, so a resumed run reproduces the interrupted run's batch order.
+        self._iters = self.config.resume_iteration * len(self.metadata.sets) * len(self.config.dataset_paths)
 
     def _load_metadata(self, dataset_path) -> PuzzleDatasetMetadata:
         with open(os.path.join(dataset_path, self.split, "dataset.json"), "r") as f:
