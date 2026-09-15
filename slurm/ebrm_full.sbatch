@@ -42,14 +42,8 @@ tag() { echo "$1" | sed 's/\./p/'; }   # 0.03 -> 0p03, matching the run-name con
 PROJECT=ebrm-maze
 RUN_NAME="pretrain_ebrm_maze_zy_q_gd_al$(tag $ALPHA_L)_ah$(tag $ALPHA_H)_b${BATCH}_lr$(tag $LR)"
 
-module load python/3.10.13-fasrc01 gcc/12.2.0-fasrc01
-source "$(conda info --base)/etc/profile.d/conda.sh"
-conda activate ebrm-trm
-export CUDA_HOME="$HOME/.local/share/cuda-12.6.3"
-export PATH="$CUDA_HOME/bin:$PATH"
-export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-
 source slurm/lib.sh
+activate_env             # self-sufficient: does not rely on module/conda from the submitting shell
 gpu_preflight            # bad/busy GPU on this node -> exclude node, requeue
 START_TS=$(date +%s)
 

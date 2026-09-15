@@ -14,12 +14,8 @@
 set -u
 cd "$SLURM_SUBMIT_DIR"
 mkdir -p logs
-module load python/3.10.13-fasrc01 gcc/12.2.0-fasrc01
-source "$(conda info --base)/etc/profile.d/conda.sh"
-conda activate ebrm-trm
-export CUDA_HOME="$HOME/.local/share/cuda-12.6.3"
-export PATH="$CUDA_HOME/bin:$PATH"
-export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+source slurm/lib.sh
+activate_env             # self-sufficient: does not rely on module/conda from the submitting shell
 
 DISABLE_COMPILE=1 python scripts/ebrm_memprobe.py 8,16,24,32,48,64,96 \
   arch=ebrm epochs=50000 \

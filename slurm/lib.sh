@@ -1,6 +1,36 @@
 # Shared helpers for the sbatch scripts. Source after `cd "$SLURM_SUBMIT_DIR"`.
-# Requeue on infrastructure faults (bad/busy GPU on the assigned node), excluding that node,
-# so a broken node costs a queue wait instead of ending the run. Capped to avoid looping on a real bug.
+#  - activate_env: set up the environment without relying on anything inherited from the submitting shell.
+#  - gpu_preflight / infra_check_after_run: requeue on infrastructure faults (bad/busy GPU on the assigned
+#    node), excluding that node, so a broken node costs a queue wait instead of ending the run. Capped.
+
+EBRM_CONDA_ENV_BIN=${EBRM_CONDA_ENV_BIN:-$HOME/.conda/envs/ebrm-trm/bin}
+
+activate_env() {
+  # `module` is a shell function; batch jobs only have it if the submitting shell exported it. Init Lmod if not.
+  if ! command -v module > /dev/null 2>&1; then
+    local f; for f in /etc/profile.d/lmod.sh /etc/profile.d/z00_lmod.sh /etc/profile.d/modules.sh /usr/share/lmod/lmod/init/bash; do
+      [ -f "$f" ] && { source "$f"; break; }
+    done
+  fi
+  if command -v module > /dev/null 2>&1; then
+    module load python/3.10.13-fasrc01 gcc/12.2.0-fasrc01 || echo "[sbatch] warning: module load failed (system gcc 8.5 will be used)"
+  else
+    echo "[sbatch] warning: 'module' is unavailable in this shell; using the conda env's bin directly"
+  fi
+  if command -v conda > /dev/null 2>&1; then
+    { source "$(conda info --base)/etc/profile.d/conda.sh" && conda activate ebrm-trm; } 2>/dev/null || true
+  fi
+  # Independent of module/conda: the env's own interpreter first on PATH, then the user-space CUDA toolkit.
+  export PATH="$EBRM_CONDA_ENV_BIN:$PATH"
+  export CUDA_HOME="$HOME/.local/share/cuda-12.6.3"
+  export PATH="$CUDA_HOME/bin:$PATH"
+  export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+  if ! python -c "import torch, adam_atan2" > /dev/null 2>&1; then
+    echo "[sbatch] environment check failed: '$(command -v python || echo python-not-found)' cannot import torch/adam_atan2. Not a node fault; not requeueing."
+    exit 1
+  fi
+  echo "[sbatch] python: $(command -v python)"
+}
 
 INFRA_MAX_REQUEUES=5
 INFRA_PATTERN='CUDA-capable device|busy or unavailable|no CUDA GPUs are available|CUDA driver|cudaErrorDevicesUnavailable|NCCL error|ECC error|Xid'
