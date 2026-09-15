@@ -20,15 +20,17 @@
 #SBATCH --requeue
 #SBATCH --signal=B:USR1@300
 #SBATCH --open-mode=append
-#SBATCH --array=0-3%1
+#SBATCH --array=0-2%1
 #SBATCH --output=logs/%x_%A_%a.out
 
-# ---- the sweep: edit this list; array range above must match its length (0-3 = 4 values) ----
-ALPHA_H_VALUES=(0.1 0.03 0.3 1.0)   # 0.1 (the reference value) first so it starts immediately
-ALPHA_L=0.01
+# ---- the sweep: edit these lists; array range above must match their length (0-2 = 3 values) ----
+# Task 0 is the reference config (alpha_L=0.001, alpha_H=0.01, lr=1e-4, batch 32); tasks 1-2 bracket it 3x
+# either way, keeping alpha_L = alpha_H / 10. (alpha_H=0.1 / alpha_L=0.01 at lr 1e-4 diverged: run *_b32.)
+ALPHA_H_VALUES=(0.01  0.003  0.03)
+ALPHA_L_VALUES=(0.001 0.0003 0.003)
 BATCH=32
-LR=2.5e-5           # 1e-4 was set for batch 128 and diverged at batch 32; scaled linearly with batch.
-PUZZLE_EMB_LR=2.5e-5   # sign-SGD moves a fixed amount per step; scaled the same way to keep movement per epoch.
+LR=1e-4
+PUZZLE_EMB_LR=1e-4
 EPOCHS=10000        # screen. Must be a multiple of EVAL_INTERVAL.
 EVAL_INTERVAL=2000  # 5 test-set points over the screen; epoch 10000 lines up with the TRM baseline's.
 # -----------------------------------------------------------------------------------------
@@ -38,6 +40,7 @@ cd "$SLURM_SUBMIT_DIR"
 mkdir -p logs
 
 ALPHA_H=${ALPHA_H_VALUES[$SLURM_ARRAY_TASK_ID]}
+ALPHA_L=${ALPHA_L_VALUES[$SLURM_ARRAY_TASK_ID]}
 tag() { echo "$1" | sed 's/\./p/'; }   # 0.03 -> 0p03, matching the run-name convention
 PROJECT=ebrm-maze
 RUN_NAME="pretrain_ebrm_maze_zy_q_gd_al$(tag $ALPHA_L)_ah$(tag $ALPHA_H)_b${BATCH}_lr$(tag $LR)"   # lr in the name: earlier lr1e-4 runs are kept as a record

@@ -23,12 +23,12 @@
 #SBATCH --array=0-1%2
 #SBATCH --output=logs/%x_%A_%a.out
 
-# ---- EDIT: the two winners of the screen; array range above must match its length (0-1 = 2 values) ----
-ALPHA_H_VALUES=(0.1 0.3)
-ALPHA_L=0.01
+# ---- EDIT: the two winners of the screen (paired alpha_H / alpha_L); array range 0-1 = 2 values ----
+ALPHA_H_VALUES=(0.01  0.03)
+ALPHA_L_VALUES=(0.001 0.003)
 BATCH=32
-LR=2.5e-5           # must equal the screen's (the run name and checkpoint are shared)
-PUZZLE_EMB_LR=2.5e-5
+LR=1e-4             # must equal the screen's (the run name and checkpoint are shared)
+PUZZLE_EMB_LR=1e-4
 EPOCHS=50000        # full run
 EVAL_INTERVAL=2000  # must equal the screen's, so the continuation lines up with its checkpoint
 # -----------------------------------------------------------------------------------------
@@ -38,6 +38,7 @@ cd "$SLURM_SUBMIT_DIR"
 mkdir -p logs
 
 ALPHA_H=${ALPHA_H_VALUES[$SLURM_ARRAY_TASK_ID]}
+ALPHA_L=${ALPHA_L_VALUES[$SLURM_ARRAY_TASK_ID]}
 tag() { echo "$1" | sed 's/\./p/'; }   # 0.03 -> 0p03, matching the run-name convention
 PROJECT=ebrm-maze
 RUN_NAME="pretrain_ebrm_maze_zy_q_gd_al$(tag $ALPHA_L)_ah$(tag $ALPHA_H)_b${BATCH}_lr$(tag $LR)"
