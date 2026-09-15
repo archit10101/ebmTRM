@@ -28,8 +28,11 @@ RUN_NAME=pretrain_ebrm_maze_zy_q_gd_al0p01_ah0p1_b32
 
 echo "[sbatch] $(date) job=$SLURM_JOB_ID restarts=${SLURM_RESTART_COUNT:-0} node=$(hostname)"
 
-# Slurm sends USR1 (5 min before the time limit) or TERM (preemption) to this shell; forward to python.
-trap 'echo "[sbatch] signal received, forwarding to python"; kill -USR1 "$PID" 2>/dev/null' USR1 TERM
+# USR1 = Slurm's warning 5 min before the time limit; TERM = preemption or scancel. Forward both to python
+# so it checkpoints, but remember which: only the time limit needs an explicit requeue from us.
+STOP_SIGNAL=""
+trap 'STOP_SIGNAL=USR1; echo "[sbatch] time-limit warning, forwarding to python"; kill -USR1 "$PID" 2>/dev/null' USR1
+trap 'STOP_SIGNAL=TERM; echo "[sbatch] SIGTERM (preemption or scancel), forwarding to python"; kill -USR1 "$PID" 2>/dev/null' TERM
 
 # DISABLE_COMPILE is required for arch=ebrm (autograd.grad inside forward).
 # Batch 32. The math attention backend needed for second-order gradients keeps ~4 B*8*916*916 fp32
@@ -60,7 +63,12 @@ echo "[sbatch] $(date) python exited with code $EXIT"
 infra_check_after_run "$EXIT" "$START_TS"   # early CUDA device error -> exclude node, requeue
 
 if [ "$EXIT" -eq 3 ]; then
-  echo "[sbatch] checkpointed on signal; requeueing"
-  scontrol requeue "$SLURM_JOB_ID"
+  if [ "$STOP_SIGNAL" = "USR1" ]; then
+    echo "[sbatch] checkpointed before the time limit; requeueing"
+    scontrol requeue "$SLURM_JOB_ID"
+  else
+    # Preempted jobs are requeued by Slurm itself (--requeue); an scancel means stop, so do not fight it.
+    echo "[sbatch] checkpointed on SIGTERM; leaving requeue to Slurm"
+  fi
 fi
 exit "$EXIT"

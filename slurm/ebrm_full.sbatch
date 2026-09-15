@@ -50,7 +50,11 @@ START_TS=$(date +%s)
 
 echo "[sbatch] $(date) job=$SLURM_JOB_ID task=$SLURM_ARRAY_TASK_ID alpha_H=$ALPHA_H alpha_L=$ALPHA_L batch=$BATCH epochs=$EPOCHS run=$RUN_NAME restarts=${SLURM_RESTART_COUNT:-0} node=$(hostname)"
 
-trap 'echo "[sbatch] signal received, forwarding to python"; kill -USR1 "$PID" 2>/dev/null' USR1 TERM
+# USR1 = Slurm's warning 5 min before the time limit; TERM = preemption or scancel. Forward both to python
+# so it checkpoints, but remember which: only the time limit needs an explicit requeue from us.
+STOP_SIGNAL=""
+trap 'STOP_SIGNAL=USR1; echo "[sbatch] time-limit warning, forwarding to python"; kill -USR1 "$PID" 2>/dev/null' USR1
+trap 'STOP_SIGNAL=TERM; echo "[sbatch] SIGTERM (preemption or scancel), forwarding to python"; kill -USR1 "$PID" 2>/dev/null' TERM
 
 DISABLE_COMPILE=1 python pretrain.py \
   arch=ebrm \
@@ -77,7 +81,12 @@ echo "[sbatch] $(date) python exited with code $EXIT"
 infra_check_after_run "$EXIT" "$START_TS"   # early CUDA device error -> exclude node, requeue
 
 if [ "$EXIT" -eq 3 ]; then
-  echo "[sbatch] checkpointed on signal; requeueing"
-  scontrol requeue "$SLURM_JOB_ID"
+  if [ "$STOP_SIGNAL" = "USR1" ]; then
+    echo "[sbatch] checkpointed before the time limit; requeueing"
+    scontrol requeue "$SLURM_JOB_ID"
+  else
+    # Preempted jobs are requeued by Slurm itself (--requeue); an scancel means stop, so do not fight it.
+    echo "[sbatch] checkpointed on SIGTERM; leaving requeue to Slurm"
+  fi
 fi
 exit "$EXIT"
