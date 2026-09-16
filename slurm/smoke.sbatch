@@ -5,7 +5,7 @@
 # Read the summary at the bottom of logs/smoke_<jobid>.out when it finishes (~15 min).
 #SBATCH --job-name=smoke
 #SBATCH --partition=gpu_requeue
-#SBATCH --constraint="h100|h200"
+#SBATCH --constraint="h100"
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G

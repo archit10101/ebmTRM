@@ -12,7 +12,7 @@
 # 2 eval points that line up with the TRM baseline's first two. Must be a multiple of 5000.
 #SBATCH --job-name=ebrm_full
 #SBATCH --partition=gpu_requeue
-#SBATCH --constraint="h100|h200"
+#SBATCH --constraint="h100"
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G

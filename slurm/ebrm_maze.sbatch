@@ -4,7 +4,7 @@
 # on restart pretrain.py finds checkpoints/<project>/<run>/latest.pt and resumes.
 #SBATCH --job-name=ebrm_maze
 #SBATCH --partition=gpu_requeue
-#SBATCH --constraint="h100|h200"   # 80GB cards. Batch 128 needs ~200GB (OOMs on a 140GB H200); 32 is ~50GB.
+#SBATCH --constraint="h100"   # 80GB cards. Batch 128 needs ~200GB (OOMs on a 140GB H200); 32 is ~50GB.
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G

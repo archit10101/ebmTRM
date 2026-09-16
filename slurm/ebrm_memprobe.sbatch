@@ -4,7 +4,7 @@
 # Read logs/memprobe_<jobid>.out; pick the largest batch whose peak leaves ~10GB headroom on 80GB.
 #SBATCH --job-name=memprobe
 #SBATCH --partition=gpu_requeue
-#SBATCH --constraint="h100|h200"
+#SBATCH --constraint="h100"
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
