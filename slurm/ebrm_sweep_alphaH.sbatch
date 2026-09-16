@@ -45,6 +45,7 @@ tag() { echo "$1" | sed 's/\./p/'; }   # 0.03 -> 0p03, matching the run-name con
 PROJECT=ebrm-maze
 RUN_NAME="pretrain_ebrm_maze_zy_q_gd_al$(tag $ALPHA_L)_ah$(tag $ALPHA_H)_b${BATCH}_lr$(tag $LR)"   # lr in the name: earlier lr1e-4 runs are kept as a record
 
+SELF=slurm/ebrm_sweep_alphaH.sbatch   # lets lib.sh resubmit this job (with --exclude) after a node fault
 source slurm/lib.sh
 activate_env             # self-sufficient: does not rely on module/conda from the submitting shell
 gpu_preflight            # bad/busy GPU on this node -> exclude node, requeue

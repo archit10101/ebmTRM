@@ -18,6 +18,7 @@ set -u
 cd "$SLURM_SUBMIT_DIR"
 mkdir -p logs
 
+SELF=slurm/ebrm_maze.sbatch   # lets lib.sh resubmit this job (with --exclude) after a node fault
 source slurm/lib.sh
 activate_env             # self-sufficient: does not rely on module/conda from the submitting shell
 gpu_preflight            # bad/busy GPU on this node -> exclude node, requeue
