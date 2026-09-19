@@ -11,8 +11,9 @@
 # EPOCHS: 50000 is the full run (~3-5 days per value at batch 32); 10000 is a 1-day screen with
 # 2 eval points that line up with the TRM baseline's first two. Must be a multiple of 5000.
 #SBATCH --job-name=ebrm_ah
-#SBATCH --partition=gpu_requeue
-#SBATCH --constraint="h100"
+#SBATCH --partition=kempner_requeue,gpu_requeue   # whichever gives a node first
+#SBATCH --exclude=holygpu8a05402                    # H200 node with a silently unusable GPU (2026-09-16)
+#SBATCH --constraint="h100|h200"
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G

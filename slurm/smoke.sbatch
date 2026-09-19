@@ -4,8 +4,9 @@
 # 2) short EBRM run at batch 400 with GPU memory polling              (does it fit?)
 # Read the summary at the bottom of logs/smoke_<jobid>.out when it finishes (~15 min).
 #SBATCH --job-name=smoke
-#SBATCH --partition=gpu_requeue
-#SBATCH --constraint="h100"
+#SBATCH --partition=kempner_requeue,gpu_requeue   # whichever gives a node first
+#SBATCH --exclude=holygpu8a05402                    # H200 node with a silently unusable GPU (2026-09-16)
+#SBATCH --constraint="h100|h200"
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
