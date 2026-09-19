@@ -20,12 +20,13 @@
 #SBATCH --requeue
 #SBATCH --signal=B:USR1@300
 #SBATCH --open-mode=append
-#SBATCH --array=0-1%2
+#SBATCH --array=0%2
 #SBATCH --output=logs/%x_%A_%a.out
 
-# ---- EDIT: the two winners of the screen (paired alpha_H / alpha_L); array range 0-1 = 2 values ----
-ALPHA_H_VALUES=(0.01  0.03)
-ALPHA_L_VALUES=(0.001 0.003)
+# ---- EDIT: the screen winner(s) to take to 50000 epochs (paired alpha_H / alpha_L).
+# One value: --array=0 above. Two values: --array=0-1%2 and two entries in each list. ----
+ALPHA_H_VALUES=(0.003)
+ALPHA_L_VALUES=(0.0003)
 BATCH=32
 LR=1e-4             # must equal the screen's (the run name and checkpoint are shared)
 PUZZLE_EMB_LR=1e-4
