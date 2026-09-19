@@ -4,7 +4,7 @@
 # on restart pretrain.py finds checkpoints/<project>/<run>/latest.pt and resumes.
 #SBATCH --job-name=trm_maze
 #SBATCH --partition=kempner_requeue   # Kempner cannot be combined with other partitions; fallback: gpu_requeue (account ydu_lab)
-#SBATCH --account=ydu_lab_kempner     # Kempner partitions require the lab's Kempner account
+#SBATCH --account=kempner_ydu_lab     # Kempner partitions require the lab's Kempner account
 #SBATCH --exclude=holygpu8a05402                    # H200 node with a silently unusable GPU (2026-09-16)
 #SBATCH --constraint="h100|h200|a100|a40"   # full GPUs only (no MIG slices, no Blackwell RTX 6000)
 #SBATCH --gres=gpu:1
