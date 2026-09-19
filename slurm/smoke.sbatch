@@ -4,7 +4,8 @@
 # 2) short EBRM run at batch 400 with GPU memory polling              (does it fit?)
 # Read the summary at the bottom of logs/smoke_<jobid>.out when it finishes (~15 min).
 #SBATCH --job-name=smoke
-#SBATCH --partition=kempner_requeue   # Kempner cannot be combined with other partitions; fallback: gpu_requeue
+#SBATCH --partition=kempner_requeue   # Kempner cannot be combined with other partitions; fallback: gpu_requeue (account ydu_lab)
+#SBATCH --account=ydu_lab_kempner     # Kempner partitions require the lab's Kempner account
 #SBATCH --exclude=holygpu8a05402                    # H200 node with a silently unusable GPU (2026-09-16)
 #SBATCH --constraint="h100|h200"
 #SBATCH --gres=gpu:1

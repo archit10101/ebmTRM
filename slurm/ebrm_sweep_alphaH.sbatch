@@ -11,7 +11,8 @@
 # EPOCHS: 50000 is the full run (~3-5 days per value at batch 32); 10000 is a 1-day screen with
 # 2 eval points that line up with the TRM baseline's first two. Must be a multiple of 5000.
 #SBATCH --job-name=ebrm_ah
-#SBATCH --partition=kempner_requeue   # Kempner cannot be combined with other partitions; fallback: gpu_requeue
+#SBATCH --partition=kempner_requeue   # Kempner cannot be combined with other partitions; fallback: gpu_requeue (account ydu_lab)
+#SBATCH --account=ydu_lab_kempner     # Kempner partitions require the lab's Kempner account
 #SBATCH --exclude=holygpu8a05402                    # H200 node with a silently unusable GPU (2026-09-16)
 #SBATCH --constraint="h100|h200"
 #SBATCH --gres=gpu:1

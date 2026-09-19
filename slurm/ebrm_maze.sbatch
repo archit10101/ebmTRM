@@ -3,7 +3,8 @@
 # Preemptible: the job checkpoints on SIGTERM/SIGUSR1, exits with code 3, and is requeued;
 # on restart pretrain.py finds checkpoints/<project>/<run>/latest.pt and resumes.
 #SBATCH --job-name=ebrm_maze
-#SBATCH --partition=kempner_requeue   # Kempner cannot be combined with other partitions; fallback: gpu_requeue
+#SBATCH --partition=kempner_requeue   # Kempner cannot be combined with other partitions; fallback: gpu_requeue (account ydu_lab)
+#SBATCH --account=ydu_lab_kempner     # Kempner partitions require the lab's Kempner account
 #SBATCH --exclude=holygpu8a05402                    # H200 node with a silently unusable GPU (2026-09-16)
 #SBATCH --constraint="h100|h200"   # 80GB+ cards. Batch 128 needs ~200GB (OOMs on a 140GB H200); 32 is ~50GB.
 #SBATCH --gres=gpu:1

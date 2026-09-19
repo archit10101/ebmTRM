@@ -3,7 +3,8 @@
 #   sbatch slurm/ebrm_memprobe.sbatch
 # Read logs/memprobe_<jobid>.out; pick the largest batch whose peak leaves ~10GB headroom on 80GB.
 #SBATCH --job-name=memprobe
-#SBATCH --partition=kempner_requeue   # Kempner cannot be combined with other partitions; fallback: gpu_requeue
+#SBATCH --partition=kempner_requeue   # Kempner cannot be combined with other partitions; fallback: gpu_requeue (account ydu_lab)
+#SBATCH --account=ydu_lab_kempner     # Kempner partitions require the lab's Kempner account
 #SBATCH --exclude=holygpu8a05402                    # H200 node with a silently unusable GPU (2026-09-16)
 #SBATCH --constraint="h100|h200"
 #SBATCH --gres=gpu:1
