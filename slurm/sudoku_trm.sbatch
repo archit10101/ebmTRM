@@ -7,7 +7,7 @@
 #SBATCH --partition=kempner_requeue   # Kempner cannot be combined with other partitions; fallback: gpu_requeue (account ydu_lab)
 #SBATCH --account=kempner_ydu_lab     # Kempner partitions require the lab's Kempner account
 #SBATCH --exclude=holygpu8a05402                    # H200 node with a silently unusable GPU (2026-09-16)
-#SBATCH --constraint="h100|h200"
+#SBATCH --constraint="h200"   # batch 768 needs >80GB; both runs on the same GPU type for comparable timing
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
@@ -17,8 +17,13 @@
 #SBATCH --open-mode=append
 #SBATCH --output=logs/%x_%j.out
 
-# ---- EDIT after the probe: the largest batch size EBRM fits on this GPU ----
-BATCH=384
+# ---- Batch size (slurm/sudoku_memprobe.sbatch, 2026-09-22, H200 140GB) ----
+# EBRM peak memory is ~0.107 GiB/sample: 512 -> 55 GiB, 768 -> 82.5, 1024 -> 110, 1536 -> OOM.
+# 768 is the largest that leaves real headroom AND is TRM's own published Sudoku batch size, so the
+# baseline is both matched to EBRM and in its tuned configuration. It needs an H200 (82.5 > H100's 80GB).
+# Wall clock is nearly flat in batch size (EBRM ~21h, TRM ~5.4h at 50000 epochs), so a bigger batch buys
+# nothing and costs weight updates. For an H100-only pool, use 512.
+BATCH=768
 # ---------------------------------------------------------------------------
 EPOCHS=50000
 EVAL_INTERVAL=5000
