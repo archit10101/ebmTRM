@@ -1,20 +1,23 @@
-"""Measure peak GPU memory and step time of a training step at several batch sizes.
+"""Find the batch size that fits, and what it costs, for any arch on any dataset.
 
-    DISABLE_COMPILE=1 python scripts/ebrm_memprobe.py 16,32,48,64 arch=ebrm arch.alpha_H=0.1 ...
+    DISABLE_COMPILE=1 python scripts/ebrm_memprobe.py 64,128,256,384 \
+        arch=ebrm data_paths="[data/sudoku-extreme-1k-aug-1000]" epochs=50000 arch.alpha_H=0.01 ...
 
-First arg: comma-separated batch sizes (ascending). Remaining args: hydra overrides exactly as
-passed to pretrain.py. Uses random maze-shaped data (vocab 6, seq 900), so no dataset is needed.
+First arg: comma-separated batch sizes (ascending; they need not be powers of two). The rest are
+hydra overrides exactly as passed to pretrain.py. Sequence length, vocabulary and the number of
+training examples are read from the dataset named by data_paths, so the numbers match a real run;
+with no readable dataset it falls back to maze-shaped random data.
+
+Reports peak allocated memory, seconds per step, and the projected training time for `epochs`.
 Peak memory is reached inside the first training step (the retained GD cycle), so 2 steps suffice.
+Stops at the first batch size that runs out of memory: the largest one printed is the one to use.
 """
-import os, sys, time, math
+import json, os, sys, time, math
 sys.path.insert(0, os.getcwd())
+import numpy as np
 import torch
 from hydra import compose, initialize_config_dir
 from utils.functions import load_model_class
-
-# Maze-30x30-hard-1k metadata (dataset/build_maze_dataset.py): PAD + "# SGo", 30*30 cells, one identifier.
-VOCAB, SEQ_LEN, NUM_IDS = 6, 900, 1
-EPOCH_EXAMPLES = 1000  # training mazes, for the runtime estimate
 
 batch_sizes = [int(x) for x in sys.argv[1].split(",")]
 overrides = sys.argv[2:]
@@ -24,6 +27,18 @@ with initialize_config_dir(config_dir=os.path.abspath("config"), version_base=No
     cfg = compose(config_name="cfg_pretrain", overrides=overrides)
 arch = dict(cfg.arch)
 epochs = int(cfg.epochs)
+
+# Dataset shape: read it from the dataset itself so the probe matches the real run.
+VOCAB, SEQ_LEN, NUM_IDS, EPOCH_EXAMPLES = 6, 900, 1, 1000  # maze-shaped fallback
+data_path = list(cfg.data_paths)[0] if len(cfg.data_paths) else None
+meta_file = os.path.join(data_path, "train", "dataset.json") if data_path else None
+if meta_file and os.path.isfile(meta_file):
+    meta = json.load(open(meta_file))
+    VOCAB, SEQ_LEN, NUM_IDS = meta["vocab_size"], meta["seq_len"], meta["num_puzzle_identifiers"]
+    EPOCH_EXAMPLES = int(round(meta["total_groups"] * meta["mean_puzzle_examples"]))
+    print(f"dataset: {data_path}  seq_len={SEQ_LEN} vocab={VOCAB} identifiers={NUM_IDS} examples/epoch={EPOCH_EXAMPLES}", flush=True)
+else:
+    print(f"dataset: {data_path} not found; using maze-shaped random data (seq_len={SEQ_LEN}, vocab={VOCAB})", flush=True)
 
 if device == "cuda":
     p = torch.cuda.get_device_properties(0)
@@ -41,7 +56,7 @@ for B in batch_sizes:
     batch = {
         "inputs": torch.randint(1, VOCAB, (B, SEQ_LEN), dtype=torch.int32, device=device),
         "labels": torch.randint(1, VOCAB, (B, SEQ_LEN), dtype=torch.int32, device=device),
-        "puzzle_identifiers": torch.zeros(B, dtype=torch.int32, device=device),
+        "puzzle_identifiers": torch.randint(0, max(NUM_IDS, 1), (B,), dtype=torch.int32, device=device),
     }
     try:
         with torch.device(device):
