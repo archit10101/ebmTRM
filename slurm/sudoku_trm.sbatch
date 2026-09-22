@@ -31,7 +31,7 @@ EVAL_INTERVAL=5000
 set -u
 cd "$SLURM_SUBMIT_DIR"
 mkdir -p logs
-PROJECT=ebrm-sudoku
+PROJECT=ebrm-maze   # one wandb project for the whole study (name predates the Sudoku runs)
 RUN_NAME=pretrain_trm_sudoku_b${BATCH}
 SELF=slurm/sudoku_trm.sbatch   # lets lib.sh resubmit this job (with --exclude) after a node fault
 source slurm/lib.sh
