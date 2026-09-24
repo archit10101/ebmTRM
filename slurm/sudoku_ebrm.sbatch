@@ -25,23 +25,30 @@
 # nothing and costs weight updates. For an H100-only pool, use 512.
 BATCH=768
 # ---------------------------------------------------------------------------
-ALPHA_H=0.01        # reference values; the Maze sweep found >=0.03 unstable there
-ALPHA_L=0.001
-EPOCHS=50000
-EVAL_INTERVAL=5000
+# Overridable at submit time, e.g. the EBT-style variant (all descent steps inside the tracked
+# trajectory, no untracked warm-up cycles; ~3x faster since it runs 7 inner passes per ACT step, not 21):
+#   sbatch --export=ALL,ALPHA_H=1.0,ALPHA_L=1.0,H_CYCLES=1 slurm/sudoku_ebrm.sbatch
+ALPHA_H=${ALPHA_H:-0.01}      # reference values; the Maze sweep found >=0.03 unstable there
+ALPHA_L=${ALPHA_L:-0.001}
+H_CYCLES=${H_CYCLES:-3}       # 1 = no untracked warm-up cycles
+EPOCHS=${EPOCHS:-50000}
+EVAL_INTERVAL=${EVAL_INTERVAL:-5000}
 
 set -u
 cd "$SLURM_SUBMIT_DIR"
 mkdir -p logs
 PROJECT=ebrm-sudoku
-RUN_NAME=pretrain_ebrm_sudoku_al$(echo $ALPHA_L | sed "s/\./p/")_ah$(echo $ALPHA_H | sed "s/\./p/")_b${BATCH}
+# H_cycles appears in the name only when it is not the default 3, so the in-flight hc3 run keeps
+# its existing name and checkpoint directory.
+HC_TAG=""; [ "$H_CYCLES" != "3" ] && HC_TAG="_hc${H_CYCLES}"
+RUN_NAME=pretrain_ebrm_sudoku_al$(echo $ALPHA_L | sed "s/\./p/")_ah$(echo $ALPHA_H | sed "s/\./p/")${HC_TAG}_b${BATCH}
 SELF=slurm/sudoku_ebrm.sbatch   # lets lib.sh resubmit this job (with --exclude) after a node fault
 source slurm/lib.sh
 activate_env             # self-sufficient: does not rely on module/conda from the submitting shell
 gpu_preflight            # bad/busy GPU on this node -> exclude node, requeue
 START_TS=$(date +%s)
 
-echo "[sbatch] $(date) job=$SLURM_JOB_ID batch=$BATCH alpha_H=$ALPHA_H alpha_L=$ALPHA_L epochs=$EPOCHS run=$RUN_NAME restarts=${SLURM_RESTART_COUNT:-0} node=$(hostname)"
+echo "[sbatch] $(date) job=$SLURM_JOB_ID batch=$BATCH alpha_H=$ALPHA_H alpha_L=$ALPHA_L H_cycles=$H_CYCLES epochs=$EPOCHS run=$RUN_NAME restarts=${SLURM_RESTART_COUNT:-0} node=$(hostname)"
 
 # USR1 = Slurm's warning 5 min before the time limit; TERM = preemption or scancel. Forward both to python
 # so it checkpoints, but remember which: only the time limit needs an explicit requeue from us.
@@ -59,7 +66,7 @@ DISABLE_COMPILE=1 python pretrain.py \
   lr=1e-4 puzzle_emb_lr=1e-4 weight_decay=1.0 puzzle_emb_weight_decay=1.0 \
   arch.mlp_t=False arch.pos_encodings=rope \
   arch.L_layers=2 \
-  arch.H_cycles=3 arch.L_cycles=6 arch.H_steps=1 \
+  arch.H_cycles=$H_CYCLES arch.L_cycles=6 arch.H_steps=1 \
   arch.alpha_L=$ALPHA_L arch.alpha_H=$ALPHA_H \
   arch.halt_max_steps=16 \
   seed=0 ema=True \
