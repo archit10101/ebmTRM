@@ -81,6 +81,10 @@ class ACTLossHead(nn.Module):
                 "q_halt_accuracy": (valid_metrics & ((outputs["q_halt_logits"] >= 0) == seq_is_correct)).sum(),
                 "steps":          torch.where(valid_metrics, new_carry.steps, 0).sum(),
             }
+            # Energy-based models also report where their descent ended up (absent for TRM).
+            for k in ("energy", "grad_magnitude"):
+                if k in outputs:
+                    metrics[k] = torch.where(valid_metrics, outputs[k].float(), 0).sum()
 
         # Losses
 

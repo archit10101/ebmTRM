@@ -82,6 +82,9 @@ class EBRMInner(TRMInner):
         return residual.sum(dim=(1, 2))
 
     def run_cycle(self, input_embeddings, z_H, z_L, create_graph: bool, **seq_info):
+        # The final y step's energy and gradient are kept as diagnostics: they are already computed,
+        # so logging them costs nothing. They are measured just before the last update, not after it.
+        energy = grad_H = None
         for _ in range(self.config.L_cycles if self.config.use_z else 0):
             # A fresh coordinate makes this a partial derivative holding y
             # fixed, while preserving the outer training graph through both.
@@ -105,7 +108,7 @@ class EBRMInner(TRMInner):
             if not create_graph:
                 z_H = z_H.detach().requires_grad_(True)
 
-        return z_H, z_L
+        return z_H, z_L, energy.detach(), grad_H.detach()
 
     def forward(self, carry: InnerCarry, batch):
         seq_info = dict(
@@ -119,15 +122,19 @@ class EBRMInner(TRMInner):
 
         # Keep TRM's cycle schedule; H_cycles=1 skips all warm-up cycles.
         for _ in range(self.config.H_cycles - 1):
-            z_H, z_L = self.run_cycle(
+            z_H, z_L, _, _ = self.run_cycle(
                 input_embeddings.detach(), z_H, z_L, create_graph=False, **seq_info,
             )
 
         z_H = z_H.detach().requires_grad_(True)
         z_L = z_L.detach().requires_grad_(True) if self.config.use_z else None
-        z_H, z_L = self.run_cycle(
+        z_H, z_L, energy, grad_H = self.run_cycle(
             input_embeddings, z_H, z_L, create_graph=self.training, **seq_info,
         )
+        # Stationarity of the descent: RMS of dE/dy per example. Falling towards zero means the
+        # updates are converging on a minimum; flat and large means they are not.
+        self.last_energy = energy
+        self.last_grad_magnitude = grad_H.float().square().mean(dim=tuple(range(1, grad_H.ndim))).sqrt()
 
         # Read the final contextual features for TRM's Q-head. Its auxiliary
         # loss trains the backbone as well as the head, just as in TRM.
@@ -154,4 +161,8 @@ class EBRM(TRM):
         # The inherited wrapper performs replacements before the inner model,
         # producing ordinary tensors even when evaluation supplies inference
         # tensors. Keep its Q-based halting and exploration unchanged.
-        return super().forward(carry, batch)
+        new_carry, outputs = super().forward(carry, batch)
+        # Descent diagnostics from the inner model's final step, for logging only.
+        outputs["energy"] = self.inner.last_energy
+        outputs["grad_magnitude"] = self.inner.last_grad_magnitude
+        return new_carry, outputs
