@@ -27,6 +27,7 @@ class EBRMConfig(TRMConfig):
     H_steps: int = Field(default=1, ge=1)
     alpha_L: float = Field(default=0.001, gt=0, allow_inf_nan=False)
     alpha_H: float = Field(default=0.01, gt=0, allow_inf_nan=False)
+    use_z: bool = True  # False: no z_L latent, descend on z_H (y) only; L_cycles/alpha_L unused.
     no_ACT_continue: Literal[True] = True  # TRM's Q-halt-only loss.
 
 
@@ -41,7 +42,7 @@ class EBRMInner(TRMInner):
     def empty_carry(self, batch_size: int):
         device = self.embed_tokens.embedding_weight.device
         return InnerCarry(
-            # z_H is the output logits y; z_L is the hidden latent z.
+            # z_H is the output logits y; z_L is the hidden latent z (absent when use_z=False).
             z_H=torch.randn(
                 batch_size, self.config.seq_len, self.config.vocab_size,
                 device=device, dtype=torch.float32,
@@ -49,14 +50,14 @@ class EBRMInner(TRMInner):
             z_L=torch.randn(
                 batch_size, self.config.seq_len + self.puzzle_emb_len,
                 self.config.hidden_size, device=device, dtype=torch.float32,
-            ),
+            ) if self.config.use_z else None,
         )
 
     def reset_carry(self, reset_flag: torch.Tensor, carry: InnerCarry):
         reset = reset_flag.view(-1, 1, 1)
         return InnerCarry(
             z_H=torch.where(reset, torch.randn_like(carry.z_H), carry.z_H),
-            z_L=torch.where(reset, torch.randn_like(carry.z_L), carry.z_L),
+            z_L=torch.where(reset, torch.randn_like(carry.z_L), carry.z_L) if self.config.use_z else None,
         )
 
     def _features(self, input_embeddings, z_H, z_L, **seq_info):
@@ -67,10 +68,13 @@ class EBRMInner(TRMInner):
         # Math attention supports differentiation through the energy gradients.
         # This context affects only EBRM, leaving original TRM unchanged.
         with sdpa_kernel(SDPBackend.MATH):
-            return self.L_level(
-                z_L.to(self.forward_dtype), input_embeddings + y_embedding,
-                **seq_info,
-            )
+            if self.config.use_z:
+                return self.L_level(
+                    z_L.to(self.forward_dtype), input_embeddings + y_embedding,
+                    **seq_info,
+                )
+            # Without the latent, y itself is the state the network refines and x is the injection.
+            return self.L_level(y_embedding, input_embeddings, **seq_info)
 
     def get_energy(self, input_embeddings, z_H, z_L, **seq_info):
         hidden = self._features(input_embeddings, z_H, z_L, **seq_info)
@@ -78,7 +82,7 @@ class EBRMInner(TRMInner):
         return residual.sum(dim=(1, 2))
 
     def run_cycle(self, input_embeddings, z_H, z_L, create_graph: bool, **seq_info):
-        for _ in range(self.config.L_cycles):
+        for _ in range(self.config.L_cycles if self.config.use_z else 0):
             # A fresh coordinate makes this a partial derivative holding y
             # fixed, while preserving the outer training graph through both.
             z_L_current = z_L.clone()
@@ -111,7 +115,7 @@ class EBRMInner(TRMInner):
             batch["inputs"], batch["puzzle_identifiers"],
         )
         z_H = carry.z_H.detach().requires_grad_(True)
-        z_L = carry.z_L.detach().requires_grad_(True)
+        z_L = carry.z_L.detach().requires_grad_(True) if self.config.use_z else None
 
         # Keep TRM's cycle schedule; H_cycles=1 skips all warm-up cycles.
         for _ in range(self.config.H_cycles - 1):
@@ -120,7 +124,7 @@ class EBRMInner(TRMInner):
             )
 
         z_H = z_H.detach().requires_grad_(True)
-        z_L = z_L.detach().requires_grad_(True)
+        z_L = z_L.detach().requires_grad_(True) if self.config.use_z else None
         z_H, z_L = self.run_cycle(
             input_embeddings, z_H, z_L, create_graph=self.training, **seq_info,
         )
@@ -131,7 +135,7 @@ class EBRMInner(TRMInner):
             hidden = self._features(input_embeddings, z_H, z_L, **seq_info)
             q_logits = self.q_head(hidden[:, 0]).float()
 
-        new_carry = InnerCarry(z_H=z_H.detach(), z_L=z_L.detach())
+        new_carry = InnerCarry(z_H=z_H.detach(), z_L=z_L.detach() if z_L is not None else None)
         logits = z_H if self.training else z_H.detach()
         return new_carry, logits, (q_logits[..., 0], q_logits[..., 1])
 

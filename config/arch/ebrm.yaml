@@ -9,3 +9,4 @@ name: recursive_reasoning.ebrm@EBRM
 H_steps: 1
 alpha_L: 0.001
 alpha_H: 0.01
+use_z: true # false: no z_L latent, descend on z_H (y) only; L_cycles and alpha_L then unused
